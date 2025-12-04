@@ -63,6 +63,11 @@ namespace ElmanGameDevTools.PlayerSystem
         // Private variables
         private Vector3 grappleVelocity;
         private Vector3 velocityToSet;
+        private Vector3 cachedForward;
+        private Vector3 cachedRight;
+        private Quaternion targetBodyRotation;
+        private float pendingYawRotation;
+        private float pendingPitchRotation;
         private float xRotation;
         private float currentTilt;
         private float currentFov;
@@ -78,6 +83,7 @@ namespace ElmanGameDevTools.PlayerSystem
         private float defaultYPos;
         private float cameraBaseHeight;
         private float lastGroundedTime;
+        private bool firstFrame = true;
         private bool isGrounded;
         private bool isCrouching;
         private bool wantsToStand;
@@ -104,6 +110,11 @@ namespace ElmanGameDevTools.PlayerSystem
         void Start()
         {
             Cursor.lockState = CursorLockMode.Locked;
+
+            // FORCE CONSISTENT FRAMERATE
+            Application.targetFrameRate = -1;
+            QualitySettings.vSyncCount = 1;
+
             originalHeight = controller.height;
             targetHeight = originalHeight;
             defaultYPos = playerCamera.localPosition.y;
@@ -122,6 +133,11 @@ namespace ElmanGameDevTools.PlayerSystem
             }
 
             currentMovementSpeed = speed;
+            targetBodyRotation = transform.rotation;
+
+            // Initialize cached directions
+            cachedForward = transform.forward;
+            cachedRight = transform.right;
         }
 
         void Update()
@@ -136,23 +152,104 @@ namespace ElmanGameDevTools.PlayerSystem
                 wasRunningWhenJumped = false;
             }
 
-            // Reset vertical velocity when grounded
             if (isGrounded && velocity.y < 0 && !activeGrapple) velocity.y = -2f;
+
+            // READ MOUSE INPUT
+            ReadMouseInput();
+
+            // APPLY ROTATION IMMEDIATELY in Update (before movement)
+            ApplyCameraRotation();
 
             // Input and state updates
             HandleCrouching();
             UpdateMovementState();
-            HandleCameraControl(); // Always update camera
-            HandleCameraTilt();
+            UpdateCameraTilt();
             HandleFovChange();
             if (enableHeadBob) HandleHeadBob();
-        }
 
-        void FixedUpdate()
-        {
-            // Movement at fixed timestep
+            // MOVE in Update using the fresh rotation
             HandleMovement();
             HandleControllerHeightAdjustment();
+        }
+
+        void LateUpdate()
+        {
+            // Nothing here - everything happens in Update now
+        }
+
+        private void ReadMouseInput()
+        {
+            // Use legacy Input Manager for mouse delta
+            float mouseX = Input.GetAxisRaw("Mouse X");
+            float mouseY = Input.GetAxisRaw("Mouse Y");
+
+            if (Mathf.Abs(mouseX) < 0.0001f && Mathf.Abs(mouseY) < 0.0001f)
+            {
+                pendingYawRotation = 0f;
+                pendingPitchRotation = 0f;
+                return;
+            }
+
+            // Calculate rotation amounts
+            pendingYawRotation = mouseX * sensitivity;
+            pendingPitchRotation = mouseY * sensitivity;
+        }
+
+        private void ApplyCameraRotation()
+        {
+            if (firstFrame)
+            {
+                targetBodyRotation = transform.rotation;
+                firstFrame = false;
+            }
+
+            // Apply yaw to player body
+            if (Mathf.Abs(pendingYawRotation) > 0.0001f)
+            {
+                targetBodyRotation *= Quaternion.Euler(0, pendingYawRotation, 0);
+                transform.rotation = targetBodyRotation;
+            }
+
+            // CACHE the directions IMMEDIATELY after rotation
+            cachedForward = transform.forward;
+            cachedRight = transform.right;
+
+            // Apply pitch to camera
+            if (Mathf.Abs(pendingPitchRotation) > 0.0001f)
+            {
+                xRotation -= pendingPitchRotation;
+                xRotation = Mathf.Clamp(xRotation, maxLookDownAngle, maxLookUpAngle);
+            }
+
+            playerCamera.localRotation = Quaternion.Euler(xRotation, 0f, currentTilt);
+        }
+
+        private void UpdateCameraTilt()
+        {
+            if (!enableCameraTilt || (!IsEffectivelyGrounded() && !activeGrapple && !Swinging))
+            {
+                currentTilt = Mathf.Lerp(currentTilt, 0f, tiltSmoothness * Time.deltaTime);
+                return;
+            }
+
+            Keyboard kb = Keyboard.current;
+            if (kb == null)
+            {
+                currentTilt = Mathf.Lerp(currentTilt, 0f, tiltSmoothness * Time.deltaTime);
+                return;
+            }
+
+            float moveX = 0f;
+            if (kb.dKey.isPressed) moveX += 1f;
+            if (kb.aKey.isPressed) moveX -= 1f;
+
+            float targetTilt = 0f;
+            if (Mathf.Abs(moveX) > 0.1f)
+            {
+                targetTilt = -moveX * tiltAmount;
+            }
+
+            currentTilt = Mathf.Lerp(currentTilt, targetTilt, tiltSmoothness * Time.deltaTime);
         }
 
         private bool IsEffectivelyGrounded()
@@ -207,6 +304,8 @@ namespace ElmanGameDevTools.PlayerSystem
         {
             if (freeze) return;
 
+            float deltaTime = Time.deltaTime;
+
             // Grappling
             if (activeGrapple)
             {
@@ -217,14 +316,15 @@ namespace ElmanGameDevTools.PlayerSystem
                 if (kb.sKey.isPressed) moveZ -= 1f;
                 if (kb.dKey.isPressed) moveX += 1f;
 
-                Vector3 move = (transform.right * moveX + transform.forward * moveZ).normalized;
-                controller.Move(move * (currentMovementSpeed * grappleAirControl) * Time.fixedDeltaTime);
-                controller.Move(grappleVelocity * Time.fixedDeltaTime);
-                grappleVelocity.y += gravity * Time.fixedDeltaTime;
+                // Use CACHED directions
+                Vector3 move = (cachedRight * moveX + cachedForward * moveZ).normalized;
+                controller.Move(move * (currentMovementSpeed * grappleAirControl) * deltaTime);
+                controller.Move(grappleVelocity * deltaTime);
+                grappleVelocity.y += gravity * deltaTime;
                 return;
             }
 
-            // Swinging - Rigidbody handles it
+            // Swinging
             if (Swinging) return;
 
             // Normal movement
@@ -235,7 +335,8 @@ namespace ElmanGameDevTools.PlayerSystem
             if (kb2.sKey.isPressed) moveZ2 -= 1f;
             if (kb2.dKey.isPressed) moveX2 += 1f;
 
-            Vector3 move2 = (transform.right * moveX2 + transform.forward * moveZ2).normalized;
+            // Use CACHED directions
+            Vector3 move2 = (cachedRight * moveX2 + cachedForward * moveZ2).normalized;
 
             // Jumping
             if (Keyboard.current.spaceKey.wasPressedThisFrame && IsEffectivelyGrounded() && !isCrouching)
@@ -244,121 +345,34 @@ namespace ElmanGameDevTools.PlayerSystem
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             }
 
-            // Air or ground
-            if (!IsEffectivelyGrounded())
+            // SIMPLIFIED MOVEMENT - No complex friction/velocity blending
+            if (IsEffectivelyGrounded())
             {
-                controller.Move(move2 * (currentMovementSpeed * 0.5f) * Time.fixedDeltaTime);
-                velocity.x *= 0.99f;
-                velocity.z *= 0.99f;
+                // Direct movement on ground - smooth and responsive
+                if (move2.magnitude > 0.1f)
+                {
+                    controller.Move(move2 * currentMovementSpeed * deltaTime);
+                }
+
+                // Reset horizontal velocity when grounded
+                velocity.x = 0;
+                velocity.z = 0;
             }
             else
             {
-                float horizontalSpeed = Mathf.Sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
-                Vector3 horizontalMovement = Vector3.zero;
+                // Air movement with momentum preservation
+                Vector3 airMove = move2 * (currentMovementSpeed * 0.5f) * deltaTime;
+                Vector3 momentum = new Vector3(velocity.x, 0, velocity.z) * deltaTime;
+                controller.Move(airMove + momentum);
 
-                if (horizontalSpeed > 0.5f)
-                {
-                    horizontalMovement += new Vector3(velocity.x, 0, velocity.z);
-                    float frictionFactor = Mathf.Pow(0.3f, Time.fixedDeltaTime);
-                    velocity.x *= frictionFactor;
-                    velocity.z *= frictionFactor;
-                }
-                else
-                {
-                    velocity.x = 0;
-                    velocity.z = 0;
-                }
-
-                if (move2.magnitude > 0.1f)
-                {
-                    horizontalMovement += move2 * currentMovementSpeed;
-                    if (horizontalSpeed > currentMovementSpeed * 0.5f)
-                    {
-                        velocity.x *= 0.5f;
-                        velocity.z *= 0.5f;
-                    }
-                }
-
-                controller.Move(horizontalMovement * Time.fixedDeltaTime);
+                // Light air drag
+                velocity.x *= 0.98f;
+                velocity.z *= 0.98f;
             }
 
             UpdateMarkerPosition();
-            velocity.y += gravity * Time.fixedDeltaTime;
-            controller.Move(new Vector3(0, velocity.y, 0) * Time.fixedDeltaTime);
-        }
-
-        private void HandleCameraControl()
-        {
-            // Ensure we have valid input
-            if (Mouse.current == null)
-                return;
-
-            Vector2 mouseDelta = Mouse.current.delta.ReadValue();
-            
-            // Only apply rotation if there's actual mouse movement
-            if (mouseDelta.sqrMagnitude < 0.0001f)
-                return;
-
-            // Calculate rotation amounts
-            float yawDelta = mouseDelta.x * sensitivity * 0.08f;
-            float pitchDelta = mouseDelta.y * sensitivity * 0.08f;
-
-            // Apply yaw to player body (horizontal look)
-            transform.Rotate(Vector3.up * yawDelta, Space.Self);
-
-            // Apply pitch to camera (vertical look)
-            xRotation -= pitchDelta;
-            xRotation = Mathf.Clamp(xRotation, maxLookDownAngle, maxLookUpAngle);
-
-            // Set camera rotation (pitch only, no yaw since player body handles it)
-            playerCamera.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-        }
-
-        private void HandleCameraTilt()
-        {
-            // Don't tilt during certain states
-            if (!enableCameraTilt || (!IsEffectivelyGrounded() && !activeGrapple && !Swinging))
-            {
-                currentTilt = Mathf.Lerp(currentTilt, 0f, tiltSmoothness * Time.deltaTime);
-                ApplyTilt();
-                return;
-            }
-
-            // Get movement input
-            Keyboard kb = Keyboard.current;
-            if (kb == null)
-            {
-                currentTilt = Mathf.Lerp(currentTilt, 0f, tiltSmoothness * Time.deltaTime);
-                ApplyTilt();
-                return;
-            }
-
-            float moveX = 0f;
-            if (kb.dKey.isPressed) moveX += 1f;
-            if (kb.aKey.isPressed) moveX -= 1f;
-
-            // Calculate target tilt
-            float targetTilt = 0f;
-            if (Mathf.Abs(moveX) > 0.1f)
-            {
-                targetTilt = -moveX * tiltAmount;
-            }
-
-            // Smooth tilt transition
-            currentTilt = Mathf.Lerp(currentTilt, targetTilt, tiltSmoothness * Time.deltaTime);
-            
-            ApplyTilt();
-        }
-
-        private void ApplyTilt()
-        {
-            // Apply tilt as roll to the camera
-            // Get current pitch from local rotation
-            Quaternion currentRot = playerCamera.localRotation;
-            Vector3 eulerAngles = currentRot.eulerAngles;
-            
-            // Reapply with tilt on Z-axis
-            playerCamera.localRotation = Quaternion.Euler(eulerAngles.x, eulerAngles.y, currentTilt);
+            velocity.y += gravity * deltaTime;
+            controller.Move(new Vector3(0, velocity.y, 0) * deltaTime);
         }
 
         private void HandleFovChange()
@@ -544,10 +558,6 @@ namespace ElmanGameDevTools.PlayerSystem
             return true;
         }
 
-        /// <summary>
-        /// Returns whether the player is currently crouching
-        /// </summary>
-        /// <returns>True if crouching</returns>
         public bool IsCrouching()
         {
             return isCrouching;

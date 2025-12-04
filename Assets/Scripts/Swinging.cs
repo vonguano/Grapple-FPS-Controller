@@ -347,25 +347,23 @@ public class Swinging : MonoBehaviour
             lr.enabled = false;
         }
 
-        // Capture velocity BEFORE destroying joint
         Vector3 finalVelocity = Vector3.zero;
         if (rb != null)
         {
             finalVelocity = rb.linearVelocity;
-
-            // REDUCE velocity to prevent ice sliding
-            // Keep horizontal momentum but reduce it
-            finalVelocity.x *= 0.6f; // 60% horizontal momentum
+            finalVelocity.x *= 0.6f;
             finalVelocity.z *= 0.6f;
-            finalVelocity.y *= 0.8f; // 80% vertical momentum
+            finalVelocity.y *= 0.8f;
 
             if (debugMode) Debug.Log($"Captured velocity: {rb.linearVelocity} -> Reduced: {finalVelocity}");
 
-            // Reset rigidbody
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
             rb.isKinematic = true;
             rb.useGravity = false;
+
+            // FIX: Reset collision detection
+            rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
         }
 
         // Destroy joint
