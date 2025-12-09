@@ -7,8 +7,9 @@ using UnityEngine.InputSystem;
 
 namespace ElmanGameDevTools.PlayerSystem
 {
-    [AddComponentMenu("Elman Game Dev Tools/Player System/Player Controller")]
-    public class PlayerController : MonoBehaviour
+[AddComponentMenu("Elman Game Dev Tools/Player System/Player Controller")]
+[RequireComponent(typeof(PlayerHealth))]
+public class PlayerController : MonoBehaviour
     {
         [Header("REFERENCES")]
         public CharacterController controller;
