@@ -157,11 +157,8 @@ namespace ElmanGameDevTools.PlayerSystem
 
             if (isGrounded && velocity.y < 0 && !activeGrapple) velocity.y = -2f;
 
-            // READ MOUSE INPUT
+            // READ MOUSE INPUT (but don't apply rotation yet)
             ReadMouseInput();
-
-            // APPLY ROTATION IMMEDIATELY in Update
-            ApplyCameraRotation();
 
             // Input and state updates
             HandleCrouching();
@@ -173,14 +170,18 @@ namespace ElmanGameDevTools.PlayerSystem
 
         void FixedUpdate()
         {
-            // Movement in FixedUpdate for smooth physics
+            // APPLY ROTATION in FixedUpdate (same timing as movement)
+            ApplyCameraRotation();
+
+            // Movement immediately after rotation
             HandleMovement();
             HandleControllerHeightAdjustment();
         }
 
         void LateUpdate()
         {
-            // Nothing here
+            // Smooth camera rendering after FixedUpdate
+            // The rotation was already applied in FixedUpdate, this just ensures smooth rendering
         }
 
         private void ReadMouseInput()
