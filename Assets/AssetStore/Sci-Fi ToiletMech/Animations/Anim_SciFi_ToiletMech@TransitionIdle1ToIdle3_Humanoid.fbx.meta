@@ -1,12 +1,5 @@
 fileFormatVersion: 2
-guid: 66c93d6e7f6700d42855d3a441c323b7
-AssetOrigin:
-  serializedVersion: 1
-  productId: 315652
-  packageName: Sci-Fi ToiletMech
-  packageVersion: 1.02
-  assetPath: Assets/Sci-Fi ToiletMech/Animations/Anim_SciFi_ToiletMech@TransitionIdle1ToIdle3.fbx
-  uploadId: 827142
+guid: a9f567c62b921134ca0936e4bf7ce023
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
@@ -20,9 +13,9 @@ ModelImporter:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
     resampleCurves: 1
-    optimizeGameObjects: 1
+    optimizeGameObjects: 0
     removeConstantScaleCurves: 0
-    motionNodeName: 
+    motionNodeName: <Root Transform>
     animationImportErrors: 
     animationImportWarnings: "\nClip 'Take 001' has import animation warnings that
       might lower retargeting quality:\nNote: Activate translation DOF on avatar
@@ -513,13 +506,13 @@ ModelImporter:
         length: 0
         modified: 0
     skeleton:
-    - name: Anim_SciFi_ToiletMech@TransitionIdle1ToIdle3(Clone)
+    - name: Anim_SciFi_ToiletMech@TransitionIdle1ToIdle3 (Humanoid)(Clone)
       parentName: 
       position: {x: 0, y: 0, z: 0}
       rotation: {x: 0, y: 0, z: 0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: root
-      parentName: Anim_SciFi_ToiletMech@TransitionIdle1ToIdle3(Clone)
+      parentName: Anim_SciFi_ToiletMech@TransitionIdle1ToIdle3 (Humanoid)(Clone)
       position: {x: -0, y: 0, z: 0}
       rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071068}
       scale: {x: 1, y: 1, z: 1}
