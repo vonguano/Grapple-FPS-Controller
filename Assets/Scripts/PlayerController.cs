@@ -115,6 +115,9 @@ namespace ElmanGameDevTools.PlayerSystem
             Application.targetFrameRate = -1;
             QualitySettings.vSyncCount = 1;
 
+            // INCREASE Fixed Timestep rate for smoother CharacterController movement
+            Time.fixedDeltaTime = 0.01f; // 100 Hz instead of default 50 Hz
+
             originalHeight = controller.height;
             targetHeight = originalHeight;
             defaultYPos = playerCamera.localPosition.y;
@@ -157,7 +160,7 @@ namespace ElmanGameDevTools.PlayerSystem
             // READ MOUSE INPUT
             ReadMouseInput();
 
-            // APPLY ROTATION IMMEDIATELY in Update (before movement)
+            // APPLY ROTATION IMMEDIATELY in Update
             ApplyCameraRotation();
 
             // Input and state updates
@@ -166,15 +169,18 @@ namespace ElmanGameDevTools.PlayerSystem
             UpdateCameraTilt();
             HandleFovChange();
             if (enableHeadBob) HandleHeadBob();
+        }
 
-            // MOVE in Update using the fresh rotation
+        void FixedUpdate()
+        {
+            // Movement in FixedUpdate for smooth physics
             HandleMovement();
             HandleControllerHeightAdjustment();
         }
 
         void LateUpdate()
         {
-            // Nothing here - everything happens in Update now
+            // Nothing here
         }
 
         private void ReadMouseInput()
@@ -304,7 +310,8 @@ namespace ElmanGameDevTools.PlayerSystem
         {
             if (freeze) return;
 
-            float deltaTime = Time.deltaTime;
+            // Use Time.fixedDeltaTime since we're in FixedUpdate
+            float deltaTime = Time.fixedDeltaTime;
 
             // Grappling
             if (activeGrapple)
@@ -345,7 +352,7 @@ namespace ElmanGameDevTools.PlayerSystem
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
             }
 
-            // SIMPLIFIED MOVEMENT - No complex friction/velocity blending
+            // SIMPLIFIED MOVEMENT
             if (IsEffectivelyGrounded())
             {
                 // Direct movement on ground - smooth and responsive
