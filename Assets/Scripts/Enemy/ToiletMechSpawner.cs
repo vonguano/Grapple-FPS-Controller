@@ -72,7 +72,7 @@ public class ToiletMechSpawner : MonoBehaviour
     {
         hasSpawned = false;
 
-        // Optional: Reset Animator to initial state
+        // Reset Animator to initial state
         if (humanoidAnimator != null) humanoidAnimator.Rebind();
         if (genericAnimator != null) genericAnimator.Rebind();
     }
