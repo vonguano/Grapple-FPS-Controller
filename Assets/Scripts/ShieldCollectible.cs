@@ -1,5 +1,4 @@
 using UnityEngine;
-
 namespace ElmanGameDevTools.PlayerSystem
 {
     public class ShieldCollectible : MonoBehaviour
@@ -7,6 +6,7 @@ namespace ElmanGameDevTools.PlayerSystem
         public float rotationSpeed = 90f;
         public float bobHeight = 0.2f;
         public float bobSpeed = 2f;
+        public AudioClip[] pickupSounds; // Changed to array
 
         private Vector3 startPosition;
         private PlayerHealth owner;
@@ -39,13 +39,21 @@ namespace ElmanGameDevTools.PlayerSystem
             var playerHealth = other.GetComponent<PlayerHealth>();
             if (playerHealth == null) return;
 
-            playerHealth.GrantShield();
+            // Play random sound from array
+            if (pickupSounds != null && pickupSounds.Length > 0)
+            {
+                var randomSound = pickupSounds[Random.Range(0, pickupSounds.Length)];
+                if (randomSound != null)
+                {
+                    AudioSource.PlayClipAtPoint(randomSound, transform.position);
+                }
+            }
 
+            playerHealth.GrantShield();
             if (owner != null)
             {
                 owner.NotifyCollectibleConsumed(this);
             }
-
             Destroy(gameObject);
         }
     }

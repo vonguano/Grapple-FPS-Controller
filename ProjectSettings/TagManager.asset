@@ -6,11 +6,15 @@ TagManager:
   tags:
   - Wall
   - Grappable
+  - Stone
+  - grass
+  - metal
+  - Laser
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - Player
+  - Grappable
   - Water
   - UI
   - 
